@@ -14,7 +14,7 @@ BEGIN {
     require MRO::Compat;
   }
   local $@;
-  if (eval { require Sub::Util; 1 }) {
+  if (eval { require Sub::Util; defined &Sub::Util::subname }) {
     *_stash_name = sub {
       my $name = Sub::Util::subname($_[0]);
       $name =~ s{::[^:]+\z}{};
