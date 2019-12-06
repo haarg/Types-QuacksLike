@@ -112,11 +112,11 @@ $meta->add_type({
   name    => "QuacksLike",
   parent  => Object,
   constraint_generator => sub {
-    my @packages = @_;
-    return Object unless @_;
-    $class_name->($_) for @_;
+    my @packages = map $class_name->assert_return($_), @_;
+    return Object unless @packages;
+
     my %s;
-    my @methods = sort grep !$s{$_}++, map _get_methods($_), @_;
+    my @methods = sort grep !$s{$_}++, map _get_methods($_), @packages;
 
     require Type::Tiny::Duck;
     return Type::Tiny::Duck->new(
