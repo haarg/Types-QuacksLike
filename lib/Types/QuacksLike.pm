@@ -34,7 +34,29 @@ BEGIN {
   }
 }
 
-my $meta = __PACKAGE__->meta;
+sub _methods_from_package {
+  my $package = shift;
+  no strict 'refs';
+  my $does
+    = $package->can('does') ? 'does'
+    : $package->can('DOES') ? 'DOES'
+    : undef;
+  my $stash = \%{"${package}::"};
+  return
+    grep {
+      my $code = \&{"${package}::$_"};
+      my $code_stash = _stash_name($code) or next;
+
+      /\A\(/
+      or $code_stash eq $package
+      or $code_stash eq 'constant'
+      or $does && $package->$does($code_stash)
+    }
+    grep {
+      my $entry = $stash->{$_};
+      defined $entry && ref $entry ne 'HASH' && exists &{"${package}::$_"};
+    } keys %$stash;
+}
 
 sub _get_methods {
   my $package = shift;
@@ -46,19 +68,22 @@ sub _get_methods {
     return Role::Tiny->methods_provided_by($package);
   }
   elsif ($INC{'Class/MOP.pm'} and $meta = Class::MOP::class_of($package)) {
+    # classes
     if ($meta->can('get_all_method_names')) {
       return $meta->get_all_method_names;
     }
+    # roles
     elsif ($meta->can('get_method_list')) {
       return $meta->get_method_list;
     }
+    # packages
     elsif ($meta->can('list_all_symbols')) {
       return $meta->list_all_symbols('CODE');
     }
   }
   else {
     my @methods;
-    my %s;
+
     my $moo_method;
     if ($INC{'Moo.pm'}) {
       $moo_method = Moo->can('is_class') ? 'is_class' : '_accessor_maker_for';
@@ -69,39 +94,18 @@ sub _get_methods {
         push @methods, keys %{ Moo->_concrete_methods_of($isa) };
       }
       else {
-        no strict 'refs';
-        my $does
-          = $isa->can('does') ? 'does'
-          : $isa->can('DOES') ? 'DOES'
-          : undef;
-        my $stash = \%{"${isa}::"};
-        my @subs = grep {
-          my $entry = $stash->{$_};
-          defined $entry && !(ref $entry ne 'HASH');
-        } keys %$stash;
-        for my $name (@subs) {
-          my $code_stash;
-          if (
-            $name =~ /\A\(/
-            or (
-              $code_stash = _stash_name(\&{"${isa}::${name}"})
-              and (
-                $code_stash eq $isa
-                or $code_stash eq 'constant'
-                or $does && $isa->$does($code_stash)
-              )
-            )
-          ) {
-            push @methods, $name;
-          }
-        };
+        push @methods, _methods_from_package($isa);
       }
     }
-    return @methods;
+
+    my %s;
+    return sort grep !$s{$_}++, @methods;
   }
+
   return ();
 }
 
+my $meta = __PACKAGE__->meta;
 my $class_name = ClassName;
 
 $meta->add_type({
