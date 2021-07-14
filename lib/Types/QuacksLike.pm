@@ -58,51 +58,47 @@ sub _methods_from_package {
     } keys %$stash;
 }
 
-sub _get_methods {
+sub _methods_of {
   my $package = shift;
-  my $meta;
+  my @methods;
   if ($INC{'Moo/Role.pm'} && Moo::Role->is_role($package)) {
-    return Moo::Role->methods_provided_by($package);
+    @methods = Moo::Role->methods_provided_by($package);
   }
   elsif ($INC{'Role/Tiny.pm'} && Role::Tiny->is_role($package)) {
-    return Role::Tiny->methods_provided_by($package);
+    @methods = Role::Tiny->methods_provided_by($package);
   }
-  elsif ($INC{'Class/MOP.pm'} and $meta = Class::MOP::class_of($package)) {
+  elsif ($INC{'Class/MOP.pm'} and my $meta = Class::MOP::class_of($package)) {
     # classes
     if ($meta->can('get_all_method_names')) {
-      return $meta->get_all_method_names;
+      @methods = $meta->get_all_method_names;
     }
     # roles
     elsif ($meta->can('get_method_list')) {
-      return $meta->get_method_list;
+      @methods = $meta->get_method_list;
     }
     # packages
     elsif ($meta->can('list_all_symbols')) {
-      return $meta->list_all_symbols('CODE');
+      @methods = $meta->list_all_symbols('CODE');
     }
   }
   else {
-    my @methods;
-
     my $moo_method;
     if ($INC{'Moo.pm'}) {
       $moo_method = Moo->can('is_class') ? 'is_class' : '_accessor_maker_for';
     }
 
+    my %s;
     for my $isa (@{mro::get_linear_isa($package)}) {
       if ($moo_method && Moo->$moo_method($isa)) {
-        push @methods, keys %{ Moo->_concrete_methods_of($isa) };
+        push @methods, grep !$s{$_}++, keys %{ Moo->_concrete_methods_of($isa) };
       }
       else {
-        push @methods, _methods_from_package($isa);
+        push @methods, grep !$s{$_}++, _methods_from_package($isa);
       }
     }
-
-    my %s;
-    return sort grep !$s{$_}++, @methods;
   }
 
-  return ();
+  return grep !/\A_/, sort @methods;
 }
 
 my $meta = __PACKAGE__->meta;
@@ -116,7 +112,7 @@ $meta->add_type({
     return Object unless @packages;
 
     my %s;
-    my @methods = sort grep !$s{$_}++, map _get_methods($_), @packages;
+    my @methods = sort grep !$s{$_}++, map _methods_of($_), @packages;
 
     require Type::Tiny::Duck;
     return Type::Tiny::Duck->new(
