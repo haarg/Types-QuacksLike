@@ -50,11 +50,7 @@ my %META = (
   x_authority => 'cpan:HAARG',
 );
 
-my %MM_ARGS = (
-  PREREQ_PM => {
-    ("$]" >= 5.010_000 ? () : ('MRO::Compat' => 0)),
-  },
-);
+my %MM_ARGS = ();
 
 ## BOILERPLATE ###############################################################
 require ExtUtils::MakeMaker;

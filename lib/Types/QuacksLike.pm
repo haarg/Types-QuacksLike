@@ -7,12 +7,35 @@ $VERSION =~ tr/_//d;
 
 use Type::Library -base;
 use Types::Standard qw(ClassName Object);
+
 BEGIN {
   if ("$]" >= 5.010_000) {
     require mro;
-  } else {
-    require MRO::Compat;
+    *_linear_isa = \&mro::get_linear_isa;
   }
+  else {
+    local $@;
+    # we don't care about order so we can ignore c3
+    eval <<'END_CODE' or die $@;
+      sub _linear_isa($;$) {
+        my $class = shift;
+        my @check = ($class);
+        my @lin;
+
+        my %found;
+        while (defined(my $check = shift @check)) {
+          push @lin, $check;
+          no strict 'refs';
+          unshift @check, grep !$found{$_}++, @{"$check\::ISA"};
+        }
+
+        return \@lin;
+      }
+END_CODE
+  }
+}
+
+BEGIN {
   local $@;
   if (eval { require Sub::Util; defined &Sub::Util::subname }) {
     *_stash_name = sub {
@@ -88,7 +111,7 @@ sub _methods_of {
     }
 
     my %s;
-    for my $isa (@{mro::get_linear_isa($package)}) {
+    for my $isa (@{_linear_isa($package)}) {
       if ($moo_method && Moo->$moo_method($isa)) {
         push @methods, grep !$s{$_}++, keys %{ Moo->_concrete_methods_of($isa) };
       }
