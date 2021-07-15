@@ -1,4 +1,8 @@
 Revision history for Types-QuacksLike
 
+  - add documentation that underscore methods are not included
+  - add test for use with Moo
+  - add missing Test::Needs prereq
+
 0.001000 - 2021-07-14
   - initial release
