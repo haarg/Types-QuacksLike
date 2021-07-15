@@ -174,7 +174,8 @@ Check for object providing all methods from a class or role.
 
 Generates a L<Type::Tiny::Duck> type requiring all of the methods that exist in
 the given package.  Supports roles from L<Moose>, L<Moo>, and L<Role::Tiny>,
-and classes from L<Moose>, L<Moo>, or standard perl.
+and classes from L<Moose>, L<Moo>, or standard perl. Methods beginning with an
+underscore are considered private, and are not included.
 
 =head1 AUTHOR
 
